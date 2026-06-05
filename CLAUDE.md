@@ -2,8 +2,9 @@
 **Single-file mobile-first choreography cue trainer for Latin dance.**
 Place timed move cues on a track, hear them spoken aloud just before each move. Works with YouTube or a local audio file.
 
-**Current live URL:** https://magenta-phoenix-fcca34.netlify.app (Netlify — temporary)
-**Goal:** move to Firebase Hosting and continue development via Claude Code / terminal.
+**Current live URL:** https://compas-d2b35.web.app (Firebase Hosting — project `compas-d2b35`)
+**Old URL:** https://magenta-phoenix-fcca34.netlify.app (Netlify — deprecated)
+**Goal:** continue development via Claude Code / terminal; deploy with `firebase deploy`.
 
 ---
 
@@ -180,8 +181,9 @@ localStorage key          contents
 ## Reference links
 | Resource | URL |
 |---|---|
-| Live app (Netlify, temp) | https://magenta-phoenix-fcca34.netlify.app |
-| Firebase console | https://console.firebase.google.com |
+| Live app (Firebase Hosting) | https://compas-d2b35.web.app |
+| Live app (Netlify, deprecated) | https://magenta-phoenix-fcca34.netlify.app |
+| Firebase console | https://console.firebase.google.com/project/compas-d2b35 |
 | Firebase Hosting docs | https://firebase.google.com/docs/hosting |
 | Claude Code docs | https://docs.claude.com/en/docs/claude-code/overview |
 | YouTube IFrame API | https://developers.google.com/youtube/iframe_api_reference |
