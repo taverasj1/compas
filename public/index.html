@@ -1,0 +1,824 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0e0a10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Compás">
+<title>Compás · choreography cue trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Hanken+Grotesk:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0e0a10; --bg2:#140f1a;
+    --surface:#1a1422; --surface2:#231b2e;
+    --border:#2c2438; --line:#39304a;
+    --text:#f4eef7; --muted:#a294b1; --faint:#766a85;
+    --coral:#ff7a3c; --magenta:#ff2e7e;
+    --grad:linear-gradient(135deg,#ff9a3c 0%,#ff4a5e 45%,#ff2e7e 100%);
+    --good:#3fd39a;
+    --r:18px; --r-sm:12px;
+    --shadow:0 18px 50px -20px rgba(255,46,126,.45);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Hanken Grotesk",system-ui,sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100dvh; line-height:1.45;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(120% 70% at 50% -10%, rgba(255,74,94,.22), transparent 55%),
+      radial-gradient(90% 60% at 85% 20%, rgba(255,46,126,.12), transparent 60%),
+      linear-gradient(180deg,var(--bg2),var(--bg) 40%);
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative; z-index:1; max-width:560px; margin:0 auto; padding:18px 16px 60px}
+
+  @keyframes fadeUp{from{opacity:0; transform:translateY(12px)}to{opacity:1; transform:none}}
+
+  header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:6px 2px 18px; animation:fadeUp .5s ease both}
+  .brand{display:flex; flex-direction:column; gap:2px}
+  .brand h1{font-family:"Unbounded",sans-serif; font-weight:800; font-size:30px; letter-spacing:-.5px; margin:0; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .brand p{margin:0; color:var(--muted); font-size:12.5px; letter-spacing:.3px}
+  .pill{font-family:"DM Mono",monospace; font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:6px 11px; white-space:nowrap}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:14px; animation:fadeUp .5s ease both}
+  .card:nth-of-type(1){animation-delay:.03s}
+  .card:nth-of-type(2){animation-delay:.06s}
+  .card:nth-of-type(3){animation-delay:.09s}
+  .card:nth-of-type(4){animation-delay:.12s}
+  .card:nth-of-type(5){animation-delay:.15s}
+  .card h2{font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--faint); margin:0 0 12px; font-weight:600}
+  .row{display:flex; gap:10px; align-items:center}
+
+  input[type=text], select{width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:var(--r-sm); padding:13px 14px; font:inherit; font-size:15px; outline:none}
+  input[type=text]:focus, select:focus{border-color:var(--magenta); box-shadow:0 0 0 3px rgba(255,46,126,.15)}
+  select{appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a294b1' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:34px}
+
+  .btn{cursor:pointer; border:1px solid var(--line); background:var(--surface2); color:var(--text); border-radius:var(--r-sm); padding:13px 16px; font:inherit; font-weight:600; font-size:14px; transition:transform .08s ease, border-color .15s, background .15s; white-space:nowrap}
+  .btn:active{transform:scale(.96)}
+  .btn.primary{border:none; background:var(--grad); color:#fff; box-shadow:0 10px 26px -12px rgba(255,46,126,.7)}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:9px 11px; font-size:13px; border-radius:10px}
+  .btn.on{border-color:var(--magenta); background:rgba(255,46,126,.16); color:#ffd5e6}
+  .btn:disabled{opacity:.4; cursor:not-allowed}
+
+  .or{display:flex; align-items:center; gap:10px; margin:12px 2px; color:var(--faint); font-size:11px; letter-spacing:1.4px; text-transform:uppercase}
+  .or::before,.or::after{content:""; flex:1; height:1px; background:var(--border)}
+
+  .player-shell{margin-top:12px; border-radius:14px; overflow:hidden; border:1px solid var(--border); background:#000; aspect-ratio:16/9; position:relative}
+  .player-shell.empty{display:flex; align-items:center; justify-content:center}
+  .player-shell.empty span{color:var(--faint); font-size:13px}
+  #player, #player iframe{position:absolute; inset:0; width:100%; height:100%}
+
+  .file-now{display:flex; align-items:center; gap:14px; margin-top:12px; background:var(--bg); border:1px solid var(--border); border-radius:14px; padding:16px}
+  .fn-eq{flex:none; display:flex; align-items:flex-end; gap:3px; height:26px; width:30px}
+  .fn-eq i{flex:1; background:var(--grad); border-radius:2px; height:30%}
+  body.playing .fn-eq i{animation:eq .9s ease-in-out infinite}
+  body.playing .fn-eq i:nth-child(2){animation-delay:.15s}
+  body.playing .fn-eq i:nth-child(3){animation-delay:.3s}
+  @keyframes eq{0%,100%{height:25%}50%{height:100%}}
+  .fn-name{font-weight:600; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .fn-sub{font-size:12px; color:var(--faint); margin-top:1px}
+
+  .status{margin-top:12px; font-size:13px; line-height:1.55; color:var(--coral); background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:11px 13px}
+  .status.err{color:#ffc6d2; border-color:#5a2740; background:rgba(255,46,126,.07)}
+
+  .transport{display:flex; align-items:center; gap:12px; margin-top:14px}
+  .play-btn{flex:none; width:48px; height:48px; border-radius:50%; border:1px solid var(--line); background:var(--surface2); color:var(--text); display:grid; place-items:center; cursor:pointer; transition:transform .08s}
+  .play-btn:active{transform:scale(.93)}
+  .play-btn:disabled{opacity:.4}
+  .play-btn svg{width:20px; height:20px}
+  .time{font-family:"DM Mono",monospace; font-size:14px; color:var(--muted); min-width:118px}
+  .time b{color:var(--text)}
+  .track{position:relative; flex:1; height:10px; border-radius:6px; background:var(--border); overflow:hidden; cursor:pointer}
+  .track .fill{position:absolute; left:0; top:0; height:100%; width:0%; background:var(--grad); z-index:1}
+  .track .lregion{position:absolute; top:0; height:100%; background:rgba(255,122,60,.16); z-index:0}
+  .track .lregion.on{background:rgba(255,46,126,.28)}
+  .track .cmark{position:absolute; top:0; width:2px; height:100%; background:#fff; opacity:.85; z-index:2; transform:translateX(-1px)}
+
+  .speedwrap{display:flex; align-items:center; gap:10px; margin-top:14px}
+  .speedwrap .lab{font-size:12px; letter-spacing:1.2px; text-transform:uppercase; color:var(--faint); flex:none}
+  .seg{display:flex; background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:3px}
+  .seg.grow{flex:1}
+  .seg button{flex:1; border:none; background:transparent; color:var(--muted); font:inherit; font-weight:600; font-size:13px; padding:8px 6px; border-radius:8px; cursor:pointer; transition:color .12s}
+  .seg button.active{background:var(--grad); color:#fff}
+
+  .stage{text-align:center; padding:22px 16px 18px; position:relative; overflow:hidden}
+  .focus-enter{position:absolute; top:12px; right:12px; width:34px; height:34px; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); cursor:pointer; font-size:15px; display:grid; place-items:center}
+  .focus-enter:active{transform:scale(.92)}
+  .focus-enter:disabled{opacity:.4}
+  .uplabel{font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--faint); margin-bottom:8px; display:inline-flex; align-items:center; gap:7px}
+  .livedot{width:7px; height:7px; border-radius:50%; background:var(--magenta); opacity:0; transition:opacity .2s}
+  body.playing .livedot{opacity:1; animation:beat 1.1s ease-in-out infinite}
+  @keyframes beat{0%,100%{transform:scale(1); opacity:.5}50%{transform:scale(1.5); opacity:1}}
+  .now{font-family:"Unbounded",sans-serif; font-weight:700; font-size:clamp(30px,9vw,46px); line-height:1.05; letter-spacing:-.5px; min-height:50px; word-break:break-word; transition:transform .14s ease}
+  .now.dim{color:var(--faint); font-weight:500; font-size:26px}
+  .now.fire{animation:pop .5s ease}
+  @keyframes pop{0%{transform:scale(1)}28%{transform:scale(1.13); color:#fff; text-shadow:0 0 30px rgba(255,46,126,.7)}100%{transform:scale(1)}}
+  .next-hint{margin-top:10px; font-size:13.5px; color:var(--muted); min-height:18px}
+  .next-hint .nm{color:var(--coral); font-weight:600}
+  .next-hint b{font-family:"DM Mono",monospace; color:var(--text)}
+
+  .cue-nav{display:flex; align-items:center; justify-content:center; gap:20px; margin-top:18px}
+  .navcue{flex:none; width:52px; height:52px; border-radius:50%; border:1px solid var(--line); background:var(--surface2); color:var(--text); cursor:pointer; font-size:18px; display:grid; place-items:center; transition:transform .08s}
+  .navcue:active{transform:scale(.9)}
+  .navcue:disabled{opacity:.35}
+  .mark-btn{width:118px; height:118px; border-radius:50%; border:none; cursor:pointer; background:var(--grad); color:#fff; display:grid; place-items:center; position:relative; box-shadow:var(--shadow); transition:transform .09s ease}
+  .mark-btn:active{transform:scale(.93)}
+  .mark-btn .ic{font-family:"Unbounded",sans-serif; font-weight:800; font-size:19px; letter-spacing:.5px}
+  .mark-btn .sub{position:absolute; bottom:22px; font-size:9px; letter-spacing:1px; text-transform:uppercase; opacity:.85}
+  .mark-btn::before{content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid rgba(255,46,126,.5); animation:ring 2.4s ease-out infinite}
+  @keyframes ring{0%{transform:scale(.85); opacity:.7}70%{opacity:0}100%{transform:scale(1.35); opacity:0}}
+  .mark-btn:disabled{opacity:.35; box-shadow:none}
+  .mark-btn:disabled::before{display:none}
+
+  .cuehead{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px}
+  .cuehead .left{display:flex; align-items:baseline; gap:8px}
+  .cuehead .count{font-family:"DM Mono",monospace; color:var(--coral); font-size:13px}
+  .cuelist{display:flex; flex-direction:column; gap:8px}
+  .cue{display:flex; align-items:center; gap:8px; background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:8px 8px 8px 11px; transition:border-color .2s, background .2s}
+  .cue.flash{border-color:var(--magenta); background:rgba(255,46,126,.08)}
+  .cue .tc{font-family:"DM Mono",monospace; font-size:13px; color:var(--coral); background:rgba(255,122,60,.1); border:none; border-radius:8px; padding:7px 9px; cursor:pointer; flex:none}
+  .cue .tc:active{transform:scale(.95)}
+  .cue .name{flex:1; min-width:0; background:transparent; border:none; color:var(--text); font:inherit; font-size:15px; font-weight:500; padding:6px 4px; outline:none}
+  .cue .name::placeholder{color:var(--faint); font-weight:400}
+  .cue .name:focus{background:var(--surface2); border-radius:8px}
+  .nudge{flex:none; display:flex; gap:3px}
+  .icbtn{flex:none; width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); cursor:pointer; font-size:13px; display:grid; place-items:center; transition:transform .08s, color .15s, border-color .15s}
+  .icbtn:active{transform:scale(.9)}
+  .icbtn.del:active{color:#ff6a7e; border-color:#ff6a7e}
+  .empty-note{color:var(--faint); font-size:13.5px; text-align:center; padding:14px 0}
+
+  .ab{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .abslot{background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:10px 12px}
+  .abslot .k{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--faint)}
+  .abslot .v{font-family:"DM Mono",monospace; font-size:16px; margin-top:2px}
+  .loopctl{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap}
+  .loopctl .btn{flex:1}
+
+  .field{margin-bottom:14px}
+  .field:last-child{margin-bottom:0}
+  .field .flabel{display:flex; justify-content:space-between; align-items:center; font-size:13px; color:var(--muted); margin-bottom:7px}
+  .field .flabel b{font-family:"DM Mono",monospace; color:var(--text); font-weight:500}
+  input[type=range]{-webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:6px; background:var(--border); outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:var(--grad); cursor:pointer; border:3px solid var(--surface)}
+  input[type=range]::-moz-range-thumb{width:22px; height:22px; border-radius:50%; background:#ff2e7e; cursor:pointer; border:3px solid var(--surface)}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; gap:12px}
+  .toggle-row .lbl{font-size:15px; font-weight:600}
+  .toggle-row .lbl small{display:block; font-weight:400; color:var(--faint); font-size:12px; margin-top:1px}
+  .toggle-row .seg{flex:none}
+  .toggle-row .seg button{padding:7px 14px}
+
+  .shrow{display:flex; gap:8px; flex-wrap:wrap}
+  .shrow .btn{flex:1}
+  .sharemsg{margin-top:10px; font-size:12.5px; color:var(--good); opacity:0; transition:opacity .25s; min-height:16px}
+  .chips{display:flex; flex-wrap:wrap; gap:8px}
+  .chip{display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:8px 8px 8px 13px; max-width:100%}
+  .chip button.load{border:none; background:none; color:var(--text); font:inherit; font-size:13px; cursor:pointer; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px}
+  .chip .ty{font-size:10px; color:var(--faint)}
+  .chip .x{flex:none; width:22px; height:22px; border-radius:50%; border:none; background:var(--surface2); color:var(--faint); cursor:pointer; font-size:12px; line-height:1}
+
+  footer{color:var(--faint); font-size:12px; line-height:1.6; margin-top:18px; padding:0 6px}
+  footer b{color:var(--muted)}
+  a{color:var(--coral)}
+
+  .exit-focus, .focusbar{display:none}
+  body.focus{overflow:hidden}
+  body.focus .stage{position:fixed; inset:0; z-index:60; margin:0; border:none; border-radius:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 20px 130px; background:radial-gradient(120% 60% at 50% 0%, rgba(255,74,94,.18), transparent 60%), var(--bg); animation:none}
+  body.focus .stage .now{font-size:clamp(44px,15vw,108px); min-height:auto}
+  body.focus .stage .now.dim{font-size:clamp(34px,11vw,70px)}
+  body.focus .stage .next-hint{font-size:16px; margin-top:18px}
+  body.focus .focus-enter, body.focus .cue-nav{display:none}
+  body.focus .exit-focus{display:block; position:fixed; top:calc(env(safe-area-inset-top) + 14px); right:14px; z-index:62; border:1px solid var(--border); background:var(--surface2); color:var(--muted); border-radius:999px; padding:9px 15px; font:inherit; font-weight:600; font-size:13px; cursor:pointer}
+  body.focus .focusbar{display:flex; align-items:center; justify-content:center; gap:14px; z-index:62; position:fixed; left:0; right:0; bottom:0; padding:16px 16px calc(env(safe-area-inset-bottom) + 18px); background:linear-gradient(0deg, var(--bg) 55%, transparent)}
+  .focusbar .navcue{width:56px; height:56px}
+  .focusbar .fplay{width:72px; height:72px; border-radius:50%; border:none; background:var(--grad); color:#fff; display:grid; place-items:center; cursor:pointer; box-shadow:var(--shadow)}
+  .focusbar .fplay:active{transform:scale(.93)}
+  .focusbar .fplay svg{width:28px; height:28px}
+  .focusbar .fspeed{min-width:58px; height:48px; border-radius:14px; border:1px solid var(--line); background:var(--surface2); color:var(--text); font-family:"DM Mono",monospace; font-size:15px; cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><h1>Compás</h1><p>choreography cue trainer</p></div>
+    <div class="pill" id="savedPill">0 saved</div>
+  </header>
+
+  <!-- TRACK -->
+  <div class="card">
+    <h2>Track</h2>
+    <div class="row">
+      <input type="text" id="urlInput" placeholder="Paste a YouTube link or ID" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn primary" id="loadBtn">Load</button>
+    </div>
+    <div class="or">or</div>
+    <button class="btn ghost" id="pickFile" style="width:100%">＋ Choose an audio file from this device</button>
+    <input type="file" id="audioFile" accept="audio/*" style="display:none">
+
+    <div class="player-shell empty" id="playerShell"><span>No track loaded</span><div id="player"></div></div>
+    <div class="file-now" id="fileNow" style="display:none">
+      <div class="fn-eq"><i></i><i></i><i></i></div>
+      <div style="min-width:0"><div class="fn-name" id="fileName">—</div><div class="fn-sub" id="fileSub">local audio · plays offline</div></div>
+    </div>
+
+    <div class="status" id="status" style="display:none"></div>
+    <div class="transport">
+      <button class="play-btn" id="playBtn" aria-label="Play / pause" disabled>
+        <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <div class="time"><b id="curTime">0:00.0</b> / <span id="durTime">0:00.0</span></div>
+      <div class="track" id="track"><div class="fill" id="trackFill"></div></div>
+    </div>
+    <div class="speedwrap">
+      <span class="lab">Speed</span>
+      <div class="seg grow" id="speedSeg">
+        <button data-v="0.5">0.5×</button><button data-v="0.75">0.75×</button>
+        <button data-v="1" class="active">1×</button><button data-v="1.25">1.25×</button><button data-v="1.5">1.5×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE -->
+  <div class="card stage">
+    <button class="focus-enter" id="focusBtn" title="Focus mode" disabled>⤢</button>
+    <div class="uplabel"><span class="livedot"></span> now</div>
+    <div class="now dim" id="nowMove">—</div>
+    <div class="next-hint" id="nextHint">&nbsp;</div>
+    <div class="cue-nav">
+      <button class="navcue" id="prevCue" title="Previous cue" disabled>⟨</button>
+      <button class="mark-btn" id="markBtn" disabled><span class="ic">MARK</span><span class="sub">drop cue</span></button>
+      <button class="navcue" id="nextCue" title="Next cue" disabled>⟩</button>
+    </div>
+  </div>
+
+  <!-- CUES -->
+  <div class="card">
+    <div class="cuehead">
+      <div class="left"><h2 style="margin:0">Cues</h2><span class="count" id="cueCount">0</span></div>
+      <button class="btn ghost sm" id="clearCues">Clear all</button>
+    </div>
+    <div class="cuelist" id="cueList"></div>
+    <div class="empty-note" id="cueEmpty">Play the track and tap <b style="color:var(--coral)">MARK</b> on the beat to drop a cue, then name the move.</div>
+  </div>
+
+  <!-- LOOP -->
+  <div class="card">
+    <h2>Loop</h2>
+    <div class="ab">
+      <div class="abslot"><div class="k">point A</div><div class="v" id="aVal">—</div></div>
+      <div class="abslot"><div class="k">point B</div><div class="v" id="bVal">—</div></div>
+    </div>
+    <div class="loopctl">
+      <button class="btn sm" id="setA">Set A</button><button class="btn sm" id="setB">Set B</button>
+      <button class="btn sm" id="loopToggle">Loop: Off</button><button class="btn ghost sm" id="clearLoop">Reset</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <h2>Voice &amp; playback</h2>
+    <div class="field toggle-row">
+      <div class="lbl">Speak cues<small>say each move name out loud</small></div>
+      <div class="seg" id="speakSeg"><button data-v="on" class="active">On</button><button data-v="off">Off</button></div>
+    </div>
+    <div class="field toggle-row">
+      <div class="lbl">Language</div>
+      <div class="seg" id="langSeg"><button data-v="es-US" class="active">Español</button><button data-v="en-US">English</button></div>
+    </div>
+    <div class="field toggle-row">
+      <div class="lbl">Count-in<small>spoken “5-6-7-8” before play</small></div>
+      <div class="seg" id="countSeg"><button data-v="on">On</button><button data-v="off" class="active">Off</button></div>
+    </div>
+    <div class="field toggle-row">
+      <div class="lbl">Keep screen awake<small>stops your phone sleeping mid-practice</small></div>
+      <div class="seg" id="wakeSeg"><button data-v="on" class="active">On</button><button data-v="off">Off</button></div>
+    </div>
+    <div class="field">
+      <div class="flabel">Voice</div>
+      <select id="voiceSel"><option>Loading voices…</option></select>
+    </div>
+    <div class="field">
+      <div class="flabel">Lead-in <b id="leadVal">0.7s</b></div>
+      <input type="range" id="leadRange" min="0" max="2000" step="50" value="700">
+      <div style="font-size:11.5px;color:var(--faint);margin-top:6px">Cue is spoken this far before its mark, so you land the move on the beat.</div>
+    </div>
+    <div class="field">
+      <div class="flabel">Speaking speed <b id="rateVal">1.05×</b></div>
+      <input type="range" id="rateRange" min="0.7" max="1.5" step="0.05" value="1.05">
+    </div>
+    <div class="field">
+      <div class="flabel">Duck music to <b id="duckVal">25%</b></div>
+      <input type="range" id="duckRange" min="0" max="100" step="5" value="25">
+      <div style="font-size:11.5px;color:var(--faint);margin-top:6px" id="duckNote">Lowers the music while a cue is spoken (works on local audio everywhere; YouTube can't duck on iPhone).</div>
+    </div>
+  </div>
+
+  <!-- SHARE -->
+  <div class="card">
+    <h2>Share &amp; backup</h2>
+    <div class="shrow">
+      <button class="btn sm" id="copyLink">Copy share link</button>
+      <button class="btn sm" id="exportBtn">Export file</button>
+      <button class="btn ghost sm" id="importBtn">Import file</button>
+    </div>
+    <div class="sharemsg" id="shareMsg"></div>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  </div>
+
+  <!-- SAVED -->
+  <div class="card" id="savedCard" style="display:none">
+    <h2>Saved choreographies</h2>
+    <div class="chips" id="savedChips"></div>
+  </div>
+
+  <footer>
+    <b>Tips:</b> two sources — paste a <b>YouTube</b> link, or pick a <b>local audio file</b> that plays offline and ducks the music properly even on iPhone. Drop to <b>0.5×</b> to drill a passage (local audio keeps the pitch); cues stay locked to the music. The ticks on the bar are your cues; tap a cue’s time to jump. Screen stays awake while playing. A share link carries your cues — for a local file the recipient picks their own copy of the audio. Everything saves on this device.
+  </footer>
+</div>
+
+<!-- focus-mode overlay controls -->
+<button class="exit-focus" id="exitFocus">✕ Exit</button>
+<div class="focusbar" id="focusBar">
+  <button class="navcue" id="fPrev" title="Previous cue">⟨</button>
+  <button class="fplay" id="fPlay" aria-label="Play / pause"><svg id="fPlayIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+  <button class="navcue" id="fNext" title="Next cue">⟩</button>
+  <button class="fspeed" id="fSpeed">1×</button>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  var apiReady=false, pendingId=null, player=null, tickRunning=false, apiTimeoutId=null;
+  var sourceMode="yt", activeType="yt";
+  var audioEl=null, audioReady=false, audioCtx=null, srcNode=null, gainNode=null, audioURL=null, pendingFileKey=null;
+  var currentVideoId=null, currentTitle="", currentLoadId=null;
+  var cues=[], loop={start:null,end:null,enabled:false};
+  var lang="es-US", speakEnabled=true, leadInMs=700, rate=1.05, duckVol=25, fullVol=100;
+  var playSpeed=1, countIn=false, keepAwake=true;
+  var voiceURI=null, voices=[];
+  var lastT=0, lastDur=0, currentCue=null, recentId=null, restoreTimer=null, speechUnlocked=false;
+  var playing=false, wakeLock=null, countActive=false, countTimer=null, pendingImport=null;
+  var SPEEDS=[0.5,0.75,1,1.25,1.5];
+
+  var $=function(id){return document.getElementById(id);};
+  function fmt(t){ if(t==null||isNaN(t))return "0:00.0"; if(t<0)t=0; var m=Math.floor(t/60),s=Math.floor(t%60),d=Math.floor((t*10)%10); return m+":"+(s<10?"0":"")+s+"."+d; }
+  function escapeHtml(s){ return (s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function parseId(s){
+    s=(s||"").trim();
+    if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+    var m;
+    m=s.match(/[?&]v=([A-Za-z0-9_-]{11})/); if(m) return m[1];
+    m=s.match(/youtu\.be\/([A-Za-z0-9_-]{11})/); if(m) return m[1];
+    m=s.match(/\/embed\/([A-Za-z0-9_-]{11})/); if(m) return m[1];
+    m=s.match(/\/shorts\/([A-Za-z0-9_-]{11})/); if(m) return m[1];
+    m=s.match(/([A-Za-z0-9_-]{11})/); if(m) return m[1];
+    return null;
+  }
+  function b64enc(s){ try{ return btoa(unescape(encodeURIComponent(s))); }catch(e){ return btoa(s); } }
+  function b64dec(s){ try{ return decodeURIComponent(escape(atob(s))); }catch(e){ return atob(s); } }
+
+  function setStatus(text,type,showRetry){
+    var el=$("status");
+    if(!text){ el.style.display="none"; el.innerHTML=""; return; }
+    el.style.display="block"; el.className="status "+(type||""); el.textContent=text;
+    if(showRetry){
+      el.appendChild(document.createElement("br"));
+      var b=document.createElement("button"); b.className="btn sm"; b.style.marginTop="10px"; b.textContent="Retry";
+      b.onclick=function(){ apiReady=false; var id=currentLoadId||parseId($("urlInput").value); if(id){ setStatus("Retrying…","",false); loadVideo(id); } };
+      el.appendChild(b);
+    }
+  }
+
+  // ---------- unified playback layer ----------
+  function pbReady(){ return sourceMode==="yt" ? !!(player&&player.getCurrentTime) : !!(audioEl&&audioReady); }
+  function pbTime(){ try{ return sourceMode==="yt" ? (player.getCurrentTime()||0) : (audioEl?audioEl.currentTime||0:0); }catch(e){ return 0; } }
+  function pbDuration(){ try{ var d=sourceMode==="yt" ? (player.getDuration?player.getDuration():0) : (audioEl?audioEl.duration:0); return (d&&isFinite(d))?d:0; }catch(e){ return 0; } }
+  function pbSeek(t){ try{ if(sourceMode==="yt"){ player.seekTo(t,true); } else if(audioEl){ audioEl.currentTime=Math.max(0,t); } }catch(e){} }
+  function pbIsPlaying(){ try{ return sourceMode==="yt" ? (player.getPlayerState&&player.getPlayerState()===1) : (!!audioEl && !audioEl.paused); }catch(e){ return false; } }
+  function pbPlay(){ try{ if(sourceMode==="yt"){ player.playVideo(); } else if(audioEl){ ensureAudioCtx(); audioEl.play(); } }catch(e){} }
+  function pbPause(){ try{ if(sourceMode==="yt"){ player.pauseVideo(); } else if(audioEl){ audioEl.pause(); } }catch(e){} }
+  function pbSetRate(r){ try{ if(sourceMode==="yt"){ player.setPlaybackRate&&player.setPlaybackRate(r); } else if(audioEl){ audioEl.playbackRate=r; } }catch(e){} }
+  function pbSetVol(pct){
+    try{
+      if(sourceMode==="yt"){ player.setVolume&&player.setVolume(pct); }
+      else{ var v=Math.max(0,Math.min(1,pct/100)); if(gainNode&&audioCtx){ try{ gainNode.gain.setTargetAtTime(v,audioCtx.currentTime,0.04); }catch(e){ gainNode.gain.value=v; } } else if(audioEl){ audioEl.volume=v; } }
+    }catch(e){}
+  }
+
+  // ---------- local audio engine ----------
+  function getAudioEl(){
+    if(!audioEl){
+      audioEl=document.createElement("audio");
+      audioEl.preload="auto"; audioEl.playsInline=true;
+      try{ audioEl.preservesPitch=true; audioEl.mozPreservesPitch=true; audioEl.webkitPreservesPitch=true; }catch(e){}
+      audioEl.addEventListener("loadedmetadata",function(){ audioReady=true; lastDur=0; updateProgress(0,pbDuration()); renderTimeline(); enablePlayUI(); });
+      audioEl.addEventListener("play",function(){ setPlaying(true); startTick(); });
+      audioEl.addEventListener("pause",function(){ setPlaying(false); });
+      audioEl.addEventListener("ended",function(){ setPlaying(false); });
+      audioEl.style.display="none"; document.body.appendChild(audioEl);
+    }
+    return audioEl;
+  }
+  function ensureAudioCtx(){
+    try{
+      if(!audioCtx){ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return; audioCtx=new AC(); }
+      if(audioCtx.state==="suspended") audioCtx.resume();
+      if(!srcNode && audioEl){ srcNode=audioCtx.createMediaElementSource(audioEl); gainNode=audioCtx.createGain(); gainNode.gain.value=1; srcNode.connect(gainNode); gainNode.connect(audioCtx.destination); }
+    }catch(e){}
+  }
+  function loadFile(file){
+    if(!file) return;
+    getAudioEl();
+    if(audioURL){ try{ URL.revokeObjectURL(audioURL); }catch(e){} }
+    audioURL=URL.createObjectURL(file); audioReady=false;
+    audioEl.src=audioURL; try{ audioEl.preservesPitch=true; }catch(e){} audioEl.load();
+    var name=(file.name||"Audio file").trim();
+    var keyId=pendingFileKey || ("file:"+name);
+    var savedTitle=null; savedIndex().forEach(function(it){ if(it.videoId===keyId) savedTitle=it.title; });
+    pendingFileKey=null;
+    showFileMode();
+    currentVideoId=keyId; currentTitle=savedTitle||name; activeType="file"; currentLoadId=keyId;
+    $("fileName").textContent=currentTitle; $("fileSub").textContent="local audio · plays offline"; $("fileNow").style.display="flex";
+    setStatus("",null,false);
+    applyState(keyId); renderAll(); applySpeed(); enablePlayUI(); startTick();
+  }
+
+  // ---------- mode switching ----------
+  function pauseYT(){ try{ player&&player.pauseVideo&&player.pauseVideo(); }catch(e){} }
+  function pauseAudio(){ try{ audioEl&&audioEl.pause(); }catch(e){} }
+  function showYTMode(){ sourceMode="yt"; pauseAudio(); $("playerShell").style.display=""; $("fileNow").style.display="none"; }
+  function showFileMode(){ sourceMode="file"; pauseYT(); $("playerShell").style.display="none"; }
+
+  // ---------- YouTube ----------
+  function ensureApiScript(){
+    if(window.YT && window.YT.Player){ apiReady=true; return; }
+    if(typeof window.onYouTubeIframeAPIReady!=="function") window.onYouTubeIframeAPIReady=onApiReady;
+    if(!document.getElementById("yt-api-script")){
+      var tag=document.createElement("script"); tag.id="yt-api-script"; tag.src="https://www.youtube.com/iframe_api";
+      tag.onerror=function(){ if(pendingId!=null) ytFailed(); }; document.head.appendChild(tag);
+    }
+  }
+  function onApiReady(){ apiReady=true; clearTimeout(apiTimeoutId); if(pendingId!=null){ buildPlayer(pendingId); pendingId=null; } }
+  function ytFailed(){ setStatus("Couldn't load YouTube's player. This is almost always an ad blocker, a privacy extension, or Brave Shields blocking youtube.com — or the file being opened directly (file://) instead of served. Either host it (Netlify / GitHub Pages) and open the https link, or use the local audio file option above instead.","err",true); }
+  function loadVideo(id){
+    currentLoadId=id; showYTMode(); $("playerShell").classList.remove("empty");
+    if(window.YT && window.YT.Player){
+      apiReady=true; setStatus("Loading track…","",false);
+      if(!player){ buildPlayer(id); } else { player.loadVideoById(id); }
+    } else {
+      pendingId=id; setStatus("Connecting to YouTube…","",false); ensureApiScript();
+      clearTimeout(apiTimeoutId); apiTimeoutId=setTimeout(function(){ if(!apiReady) ytFailed(); },7000);
+    }
+  }
+  function buildPlayer(id){
+    try{
+      var pv={playsinline:1, rel:0, modestbranding:1, fs:0, iv_load_policy:3};
+      if(location.origin && location.origin.indexOf("http")===0) pv.origin=location.origin;
+      player=new YT.Player("player",{ videoId:id, playerVars:pv, events:{ "onReady":onReady, "onStateChange":onState, "onError":onError } });
+    }catch(e){ setStatus("Couldn't start the player ("+e.message+").","err",true); }
+  }
+  function onError(e){
+    var c=e&&e.data, m;
+    if(c===2) m="That video ID looks invalid — double-check the link.";
+    else if(c===5) m="The player hit an HTML5 error. Try a different browser.";
+    else if(c===100) m="That video is private or no longer exists.";
+    else if(c===101||c===150) m="The uploader disabled embedding for this video, so YouTube won't let it play here. Try a different upload, or use a local audio file.";
+    else m="YouTube returned an error (code "+c+").";
+    setStatus(m,"err",false);
+  }
+  function onReady(){ setStatus("",null,false); syncVideo(); enablePlayUI(); startTick(); }
+  function onState(e){
+    if(sourceMode!=="yt") return;
+    syncVideo();
+    if(e&&e.data===1){ setPlaying(true); startTick(); }
+    else if(e&&(e.data===2||e.data===0)){ setPlaying(false); }
+  }
+  function syncVideo(){
+    var vid=null, title="";
+    try{ var d=player.getVideoData(); vid=d&&d.video_id; title=(d&&d.title)||""; }catch(e){}
+    vid=vid||currentLoadId;
+    if(vid && vid!==currentVideoId){ currentVideoId=vid; currentTitle=title||vid; activeType="yt"; applyState(vid); renderAll(); }
+    else if(title && title!==currentTitle){ currentTitle=title; updateSavedIndex(); }
+  }
+
+  // ---------- playback control ----------
+  function togglePlay(){
+    if(!pbReady()) return;
+    if(pbIsPlaying()){ pbPause(); return; }
+    if(sourceMode==="file") ensureAudioCtx();
+    if(countIn){ runCountIn(function(){ pbPlay(); }); } else { pbPlay(); }
+  }
+  function setPlaying(p){ playing=p; document.body.classList.toggle("playing",p); setPlayIcon(p); if(p&&keepAwake) requestWake(); else if(!p) releaseWake(); }
+  function setPlayIcon(p){
+    var pause='<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>', play='<path d="M8 5v14l11-7z"/>';
+    $("playIcon").innerHTML=p?pause:play; var f=$("fPlayIcon"); if(f) f.innerHTML=p?pause:play;
+  }
+  function applySpeed(){ pbSetRate(playSpeed); }
+  function setSpeed(s){ playSpeed=s; applySpeed(); segSet("speedSeg",String(s)); $("fSpeed").textContent=String(s)+"×"; save(); }
+  function cycleSpeed(){ var i=SPEEDS.indexOf(playSpeed); if(i<0)i=2; setSpeed(SPEEDS[(i+1)%SPEEDS.length]); }
+
+  function runCountIn(then){
+    if(countActive) return;
+    if(!window.speechSynthesis){ then(); return; }
+    countActive=true; unlockSpeech(); speechSynthesis.cancel();
+    var es=lang.indexOf("es")===0; var phrase=es?"cinco, seis, siete, ocho":"five, six, seven, eight";
+    var el=$("nowMove"); el.textContent="5 · 6 · 7 · 8"; el.className="now dim";
+    var u=new SpeechSynthesisUtterance(phrase); u.lang=lang; u.rate=1.15; u.volume=1; var v=chosenVoice(); if(v)u.voice=v;
+    var done=function(){ if(!countActive)return; countActive=false; clearTimeout(countTimer); then(); };
+    u.onend=done; u.onerror=done; countTimer=setTimeout(done,2800);
+    try{ speechSynthesis.speak(u); }catch(e){ done(); }
+  }
+
+  function requestWake(){ try{ if(("wakeLock" in navigator)&&!wakeLock){ navigator.wakeLock.request("screen").then(function(wl){ wakeLock=wl; wakeLock.addEventListener("release",function(){ wakeLock=null; }); }).catch(function(){}); } }catch(e){} }
+  function releaseWake(){ try{ if(wakeLock){ wakeLock.release(); wakeLock=null; } }catch(e){} }
+  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible"&&playing&&keepAwake) requestWake(); });
+
+  function setFocus(on){ document.body.classList.toggle("focus",on); if(on&&playing&&keepAwake) requestWake(); }
+
+  // ---------- timing loop ----------
+  function startTick(){ if(tickRunning) return; tickRunning=true; requestAnimationFrame(tick); }
+  function tick(){
+    if(pbReady()){
+      var t=pbTime(), dur=pbDuration();
+      if(dur && dur!==lastDur){ lastDur=dur; renderTimeline(); }
+      if(loop.enabled){
+        var ls=(loop.start!=null)?loop.start:0, le=(loop.end!=null)?loop.end:dur;
+        if(le>ls && t>=le-0.04){ pbSeek(ls); lastT=ls-0.05; updateProgress(ls,dur); requestAnimationFrame(tick); return; }
+      }
+      var lead=leadInMs/1000, loopActive=loop.enabled, ls2=(loop.start!=null)?loop.start:0;
+      for(var i=0;i<cues.length;i++){ var c=cues[i]; var trig=c.time-lead; if(loopActive && trig<ls2) trig=ls2; if(lastT<trig && t>=trig){ fireCue(c); } }
+      updateProgress(t,dur); updateHint(t); lastT=t;
+    }
+    requestAnimationFrame(tick);
+  }
+  function fireCue(c){
+    currentCue=c; var el=$("nowMove");
+    el.textContent=c.name && c.name.trim() ? c.name : "(unnamed)"; el.className="now fire"; void el.offsetWidth;
+    if(speakEnabled && c.name && c.name.trim()) speak(c.name);
+    flashCueRow(c);
+  }
+  function flashCueRow(c){ var row=document.querySelector('.cue[data-id="'+c.id+'"]'); if(row){ row.classList.add("flash"); setTimeout(function(){row.classList.remove("flash");},650); } }
+  function updateProgress(t,dur){ $("curTime").textContent=fmt(t); $("durTime").textContent=fmt(dur); $("trackFill").style.width=(dur>0?(Math.min(t/dur,1)*100):0)+"%"; }
+  function updateHint(t){
+    var nxt=null; for(var i=0;i<cues.length;i++){ if(cues[i].time>t+0.001){ nxt=cues[i]; break; } }
+    var h=$("nextHint");
+    if(nxt){ h.innerHTML='up next · <span class="nm">'+escapeHtml(nxt.name||"(unnamed)")+'</span> · <b>'+(nxt.time-t).toFixed(1)+'s</b>'; }
+    else if(cues.length){ h.innerHTML='end of cues'; } else { h.innerHTML='&nbsp;'; }
+  }
+  function renderTimeline(){
+    var track=$("track"); var olds=track.querySelectorAll(".cmark,.lregion"); for(var k=0;k<olds.length;k++) olds[k].remove();
+    var dur=lastDur||0; if(dur<=0) return;
+    if(loop.start!=null || loop.end!=null){
+      var s=(loop.start!=null?loop.start:0), e=(loop.end!=null?loop.end:dur);
+      if(e>s){ var r=document.createElement("div"); r.className="lregion"+(loop.enabled?" on":""); r.style.left=(s/dur*100)+"%"; r.style.width=Math.min(100,(e-s)/dur*100)+"%"; track.appendChild(r); }
+    }
+    for(var i=0;i<cues.length;i++){ var m=document.createElement("div"); m.className="cmark"; m.style.left=Math.min(100,Math.max(0,(cues[i].time/dur)*100))+"%"; track.appendChild(m); }
+  }
+
+  // ---------- speech ----------
+  function refreshVoices(){ voices=window.speechSynthesis?speechSynthesis.getVoices():[]; renderVoiceOptions(); }
+  function renderVoiceOptions(){
+    var sel=$("voiceSel"); sel.innerHTML="";
+    var root=lang.split("-")[0]; var matching=voices.filter(function(v){return v.lang && v.lang.toLowerCase().indexOf(root)===0;});
+    var list=matching.length?matching:voices;
+    if(!list.length){ var o=document.createElement("option"); o.textContent="System default"; sel.appendChild(o); return; }
+    var auto=document.createElement("option"); auto.value=""; auto.textContent="Auto ("+(list[0].name||root)+")"; sel.appendChild(auto);
+    list.forEach(function(v){ var o=document.createElement("option"); o.value=v.voiceURI; o.textContent=v.name+" — "+v.lang; if(v.voiceURI===voiceURI)o.selected=true; sel.appendChild(o); });
+  }
+  function chosenVoice(){
+    if(!voices.length) return null;
+    if(voiceURI){ for(var i=0;i<voices.length;i++) if(voices[i].voiceURI===voiceURI) return voices[i]; }
+    var root=lang.split("-")[0]; for(var j=0;j<voices.length;j++) if(voices[j].lang && voices[j].lang.toLowerCase().indexOf(root)===0) return voices[j];
+    return null;
+  }
+  function unlockSpeech(){ if(speechUnlocked||!window.speechSynthesis) return; try{ var u=new SpeechSynthesisUtterance(" "); u.volume=0; speechSynthesis.speak(u); }catch(e){} speechUnlocked=true; }
+  function duck(){ pbSetVol(duckVol); }
+  function restore(){ pbSetVol(fullVol); }
+  function speak(text){
+    if(!window.speechSynthesis) return;
+    try{
+      speechSynthesis.cancel();
+      var u=new SpeechSynthesisUtterance(text); u.lang=lang; u.rate=rate; u.volume=1; u.pitch=1;
+      var v=chosenVoice(); if(v) u.voice=v; u.onend=restore; u.onerror=restore;
+      duck(); speechSynthesis.speak(u);
+      clearTimeout(restoreTimer); restoreTimer=setTimeout(restore, Math.max(1500, text.length*120+800));
+    }catch(e){ restore(); }
+  }
+
+  // ---------- cues ----------
+  function byTime(a,b){ return a.time-b.time; }
+  function addCue(){
+    if(!pbReady()) return;
+    var c={id:Date.now()+"-"+Math.floor(Math.random()*999), time:Math.max(0,pbTime()), name:""};
+    cues.push(c); cues.sort(byTime); recentId=c.id; save(); renderCues(); renderTimeline();
+    var row=document.querySelector('.cue[data-id="'+c.id+'"]'); if(row && row.scrollIntoView) row.scrollIntoView({block:"nearest",behavior:"smooth"});
+  }
+  function jumpNext(){ if(!pbReady())return; var t=pbTime(); for(var i=0;i<cues.length;i++){ if(cues[i].time>t+0.15){ goCue(cues[i]); return; } } }
+  function jumpPrev(){ if(!pbReady())return; var t=pbTime(); for(var i=cues.length-1;i>=0;i--){ if(cues[i].time<t-0.6){ goCue(cues[i]); return; } } if(cues.length) goCue(cues[0]); }
+  function goCue(c){ pbSeek(c.time); lastT=c.time-0.05; var el=$("nowMove"); el.textContent=c.name||"(unnamed)"; el.className="now"; flashCueRow(c); }
+  function renderCues(){
+    var box=$("cueList"); box.innerHTML=""; $("cueCount").textContent=cues.length; $("cueEmpty").style.display=cues.length?"none":"block";
+    cues.forEach(function(c){
+      var row=document.createElement("div"); row.className="cue"+(c.id===recentId?" flash":""); row.setAttribute("data-id",c.id);
+      var tc=document.createElement("button"); tc.className="tc"; tc.textContent=fmt(c.time); tc.title="Jump here"; tc.onclick=function(){ pbSeek(c.time); lastT=c.time-0.05; };
+      var nm=document.createElement("input"); nm.className="name"; nm.type="text"; nm.value=c.name; nm.placeholder="name this move"; nm.autocapitalize="off"; nm.spellcheck=false; nm.oninput=function(){ c.name=nm.value; debouncedSave(); };
+      var nudge=document.createElement("div"); nudge.className="nudge";
+      nudge.appendChild(mkIc("−","earlier 0.1s",function(){ c.time=Math.max(0,c.time-0.1); cues.sort(byTime); save(); renderCues(); renderTimeline(); }));
+      nudge.appendChild(mkIc("+","later 0.1s",function(){ c.time=c.time+0.1; cues.sort(byTime); save(); renderCues(); renderTimeline(); }));
+      var del=mkIc("✕","delete",function(){ cues=cues.filter(function(x){return x.id!==c.id;}); save(); renderCues(); renderTimeline(); }); del.classList.add("del");
+      row.appendChild(tc); row.appendChild(nm); row.appendChild(nudge); row.appendChild(del); box.appendChild(row);
+    });
+    if(recentId){ setTimeout(function(){ var r=document.querySelector('.cue[data-id="'+recentId+'"]'); if(r) r.classList.remove("flash"); recentId=null; },700); }
+  }
+  function mkIc(txt,title,fn){ var b=document.createElement("button"); b.className="icbtn"; b.textContent=txt; b.title=title; b.onclick=fn; return b; }
+
+  // ---------- loop ----------
+  function renderLoop(){
+    $("aVal").textContent=loop.start!=null?fmt(loop.start):"—"; $("bVal").textContent=loop.end!=null?fmt(loop.end):"—";
+    var lt=$("loopToggle"); lt.textContent="Loop: "+(loop.enabled?"On":"Off"); lt.className="btn sm"+(loop.enabled?" on":""); renderTimeline();
+  }
+
+  // ---------- share / export / import ----------
+  function payload(){
+    return { v:currentVideoId, t:currentTitle, ty:activeType, l:leadInMs, lo:loop, la:lang, ps:playSpeed, ci:countIn, ka:keepAwake,
+             vu:voiceURI, r:rate, dv:duckVol, se:speakEnabled, c:cues.map(function(c){ return {t:+(+c.time).toFixed(2), n:c.name}; }) };
+  }
+  function makeShare(){ if(!currentVideoId) return null; return location.origin+location.pathname+"#c="+b64enc(JSON.stringify(payload())); }
+  function shareToast(msg){ var el=$("shareMsg"); if(!el) return; el.textContent=msg; el.style.opacity="1"; clearTimeout(shareToast._t); shareToast._t=setTimeout(function(){el.style.opacity="0";},2200); }
+  function copyShare(){
+    var url=makeShare(); if(!url){ shareToast("Load a track first."); return; }
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(url).then(function(){ shareToast(activeType==="file"?"Link copied ✓ (recipient picks their own audio)":"Link copied ✓"); },function(){ window.prompt("Copy this link:",url); }); }
+    else { window.prompt("Copy this link:",url); }
+  }
+  function exportFile(){
+    if(!currentVideoId){ shareToast("Load a track first."); return; }
+    var blob=new Blob([JSON.stringify(payload(),null,2)],{type:"application/json"});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+    a.download=((currentTitle||currentVideoId).replace(/[^a-z0-9]+/gi,"_").slice(0,40)||"choreo")+".compas.json";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},2000); shareToast("Exported ✓");
+  }
+  function importData(d){
+    var vid=d.v||d.videoId; if(!vid){ setStatus("No track found in that import.","err",false); return; }
+    var cz = d.c ? d.c.map(function(x){ return {t:+x.t||0, n:x.n||""}; }) : (Array.isArray(d.cues)? d.cues.map(function(x){ return {t:+x.time||0, n:x.name||""}; }) : []);
+    pendingImport={ v:vid, c:cz, lo:d.lo||d.loop||{start:null,end:null,enabled:false}, l:(typeof d.l==="number"?d.l:d.leadInMs), la:d.la||d.lang,
+                    ps:(typeof d.ps==="number"?d.ps:d.playSpeed), ci:(typeof d.ci==="boolean"?d.ci:d.countIn), ka:(typeof d.ka==="boolean"?d.ka:d.keepAwake),
+                    vu:d.vu||d.voiceURI, r:(typeof d.r==="number"?d.r:d.rate), dv:(typeof d.dv==="number"?d.dv:d.duckVol), se:(typeof d.se==="boolean"?d.se:d.speakEnabled) };
+    var isFile = (d.ty==="file") || (typeof vid==="string" && vid.indexOf("file:")===0);
+    if(isFile){
+      showFileMode(); currentVideoId=vid; currentTitle=d.t||vid.replace(/^file:/,""); activeType="file";
+      applyState(vid); renderAll();
+      $("fileName").textContent=currentTitle; $("fileSub").textContent="pick this audio file to play"; $("fileNow").style.display="flex";
+      pendingFileKey=vid; shareToast("Imported ✓ — choose the audio file"); $("audioFile").click();
+    } else {
+      $("urlInput").value=vid; loadVideo(vid); shareToast("Imported ✓");
+    }
+  }
+  function tryImportHash(){ var m=(location.hash||"").match(/#c=(.+)$/); if(!m) return; try{ var d=JSON.parse(b64dec(m[1])); if(d&&d.v){ importData(d); history.replaceState(null,"",location.pathname+location.search); } }catch(e){} }
+
+  // ---------- persistence ----------
+  function key(id){ return "compas:"+id; }
+  function save(){
+    if(!currentVideoId) return;
+    var data={v:3, videoId:currentVideoId, title:currentTitle, type:activeType, cues:cues, loop:loop, lang:lang, voiceURI:voiceURI,
+              leadInMs:leadInMs, rate:rate, duckVol:duckVol, speakEnabled:speakEnabled, playSpeed:playSpeed, countIn:countIn, keepAwake:keepAwake};
+    try{ localStorage.setItem(key(currentVideoId), JSON.stringify(data)); }catch(e){}
+    updateSavedIndex();
+  }
+  var saveTimer=null;
+  function debouncedSave(){ clearTimeout(saveTimer); saveTimer=setTimeout(save,400); }
+  function applyState(id){
+    if(pendingImport && pendingImport.v===id){
+      var d=pendingImport; pendingImport=null;
+      cues=(d.c||[]).map(function(x,i){ return {id:"imp"+Date.now()+"-"+i, time:+x.t||0, name:x.n||""}; }); cues.sort(byTime);
+      loop=d.lo||{start:null,end:null,enabled:false};
+      if(typeof d.l==="number") leadInMs=d.l; if(typeof d.la==="string") lang=d.la;
+      playSpeed=(typeof d.ps==="number")?d.ps:1; countIn=!!d.ci; keepAwake=(typeof d.ka==="boolean")?d.ka:true;
+      voiceURI=d.vu||null; if(typeof d.r==="number") rate=d.r; if(typeof d.dv==="number") duckVol=d.dv; if(typeof d.se==="boolean") speakEnabled=d.se;
+      currentCue=null; lastT=0; lastDur=0; applySpeed(); syncControls(); save(); return;
+    }
+    var raw=null; try{ raw=localStorage.getItem(key(id)); }catch(e){}
+    if(raw){
+      try{
+        var dd=JSON.parse(raw);
+        cues=Array.isArray(dd.cues)?dd.cues:[]; loop=dd.loop||{start:null,end:null,enabled:false};
+        if(typeof dd.lang==="string") lang=dd.lang; voiceURI=dd.voiceURI||null;
+        if(typeof dd.leadInMs==="number") leadInMs=dd.leadInMs; if(typeof dd.rate==="number") rate=dd.rate;
+        if(typeof dd.duckVol==="number") duckVol=dd.duckVol; if(typeof dd.speakEnabled==="boolean") speakEnabled=dd.speakEnabled;
+        playSpeed=(typeof dd.playSpeed==="number")?dd.playSpeed:1; countIn=!!dd.countIn; keepAwake=(typeof dd.keepAwake==="boolean")?dd.keepAwake:true;
+      }catch(e){ cues=[]; loop={start:null,end:null,enabled:false}; }
+    } else { cues=[]; loop={start:null,end:null,enabled:false}; playSpeed=1; countIn=false; keepAwake=true; }
+    currentCue=null; lastT=0; lastDur=0; applySpeed(); syncControls();
+  }
+  function savedIndex(){ var a=[]; try{ a=JSON.parse(localStorage.getItem("compas:index")||"[]"); }catch(e){} return Array.isArray(a)?a:[]; }
+  function updateSavedIndex(){
+    var arr=savedIndex().filter(function(x){return x.videoId!==currentVideoId;});
+    if(currentVideoId) arr.unshift({videoId:currentVideoId, title:currentTitle||currentVideoId, type:activeType});
+    try{ localStorage.setItem("compas:index", JSON.stringify(arr.slice(0,40))); }catch(e){}
+    renderSaved();
+  }
+  function renderSaved(){
+    var arr=savedIndex(); $("savedPill").textContent=arr.length+" saved"; $("savedCard").style.display=arr.length?"block":"none";
+    var box=$("savedChips"); box.innerHTML="";
+    arr.forEach(function(it){
+      var chip=document.createElement("div"); chip.className="chip";
+      var b=document.createElement("button"); b.className="load";
+      var tag=it.type==="file"?"🎵":"▶"; b.innerHTML='<span class="ty">'+tag+'</span>'+escapeHtml(it.title||it.videoId);
+      b.onclick=function(){
+        if(it.type==="file"){ showFileMode(); currentVideoId=it.videoId; currentTitle=it.title; activeType="file"; applyState(it.videoId); renderAll(); $("fileName").textContent=it.title; $("fileSub").textContent="pick this audio file to play"; $("fileNow").style.display="flex"; pendingFileKey=it.videoId; $("audioFile").click(); }
+        else { $("urlInput").value=it.videoId; loadVideo(it.videoId); }
+        window.scrollTo({top:0,behavior:"smooth"});
+      };
+      var x=document.createElement("button"); x.className="x"; x.textContent="✕"; x.title="Remove";
+      x.onclick=function(){ try{ localStorage.removeItem(key(it.videoId)); }catch(e){} var na=savedIndex().filter(function(z){return z.videoId!==it.videoId;}); try{ localStorage.setItem("compas:index",JSON.stringify(na)); }catch(e){} renderSaved(); };
+      chip.appendChild(b); chip.appendChild(x); box.appendChild(chip);
+    });
+  }
+
+  // ---------- ui sync ----------
+  function segSet(id,val){ var seg=$(id); if(!seg) return; var bs=seg.querySelectorAll("button"); for(var i=0;i<bs.length;i++) bs[i].classList.toggle("active", bs[i].getAttribute("data-v")===val); }
+  function syncControls(){
+    segSet("speakSeg", speakEnabled?"on":"off"); segSet("langSeg", lang); segSet("countSeg", countIn?"on":"off");
+    segSet("wakeSeg", keepAwake?"on":"off"); segSet("speedSeg", String(playSpeed)); $("fSpeed").textContent=String(playSpeed)+"×";
+    $("leadRange").value=leadInMs; $("leadVal").textContent=(leadInMs/1000)+"s";
+    $("rateRange").value=rate; $("rateVal").textContent=rate.toFixed(2)+"×";
+    $("duckRange").value=duckVol; $("duckVal").textContent=duckVol+"%";
+    renderVoiceOptions(); renderTimeline();
+  }
+  function renderAll(){ renderCues(); renderLoop(); renderSaved(); }
+  function enablePlayUI(){ ["playBtn","markBtn","prevCue","nextCue","focusBtn"].forEach(function(id){ $(id).disabled=false; }); }
+
+  // ---------- wire up ----------
+  document.addEventListener("pointerdown", unlockSpeech, {once:true});
+
+  $("loadBtn").onclick=function(){
+    var id=parseId($("urlInput").value);
+    if(!id){ $("urlInput").focus(); setStatus("Couldn't read a YouTube ID from that — paste a full link like youtu.be/XXXXXXXXXXX, or use a local audio file.","err",false); return; }
+    loadVideo(id);
+  };
+  $("urlInput").addEventListener("keydown",function(e){ if(e.key==="Enter") $("loadBtn").click(); });
+  $("pickFile").onclick=function(){ pendingFileKey=null; $("audioFile").click(); };
+  $("audioFile").addEventListener("change",function(){ var f=this.files&&this.files[0]; if(f) loadFile(f); this.value=""; });
+
+  $("playBtn").onclick=togglePlay; $("fPlay").onclick=togglePlay;
+  $("prevCue").onclick=jumpPrev; $("fPrev").onclick=jumpPrev;
+  $("nextCue").onclick=jumpNext; $("fNext").onclick=jumpNext;
+  $("fSpeed").onclick=cycleSpeed;
+  $("focusBtn").onclick=function(){ setFocus(true); }; $("exitFocus").onclick=function(){ setFocus(false); };
+
+  $("track").onclick=function(e){ if(!pbReady())return; var r=this.getBoundingClientRect(); var p=(e.clientX-r.left)/r.width; var dur=pbDuration(); if(dur>0){ pbSeek(p*dur); lastT=p*dur-0.05; } };
+
+  $("markBtn").onclick=addCue;
+  $("clearCues").onclick=function(){ if(!cues.length) return; if(confirm("Delete all cues for this track?")){ cues=[]; save(); renderCues(); renderTimeline(); } };
+
+  $("setA").onclick=function(){ if(!pbReady())return; loop.start=pbTime(); if(loop.end!=null&&loop.end<loop.start){loop.end=null;} save(); renderLoop(); };
+  $("setB").onclick=function(){ if(!pbReady())return; loop.end=pbTime(); if(loop.start!=null&&loop.start>loop.end){loop.start=null;} save(); renderLoop(); };
+  $("loopToggle").onclick=function(){ loop.enabled=!loop.enabled; save(); renderLoop(); };
+  $("clearLoop").onclick=function(){ loop={start:null,end:null,enabled:false}; save(); renderLoop(); };
+
+  $("speedSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; setSpeed(parseFloat(b.getAttribute("data-v"))); });
+  $("speakSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; speakEnabled=b.getAttribute("data-v")==="on"; segSet("speakSeg",speakEnabled?"on":"off"); if(!speakEnabled){ speechSynthesis&&speechSynthesis.cancel(); restore(); } save(); });
+  $("langSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; lang=b.getAttribute("data-v"); voiceURI=null; segSet("langSeg",lang); renderVoiceOptions(); save(); });
+  $("countSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; countIn=b.getAttribute("data-v")==="on"; segSet("countSeg",countIn?"on":"off"); save(); });
+  $("wakeSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; keepAwake=b.getAttribute("data-v")==="on"; segSet("wakeSeg",keepAwake?"on":"off"); if(keepAwake&&playing) requestWake(); else if(!keepAwake) releaseWake(); save(); });
+  $("voiceSel").addEventListener("change",function(){ voiceURI=this.value||null; save(); });
+  $("leadRange").addEventListener("input",function(){ leadInMs=parseInt(this.value,10); $("leadVal").textContent=(leadInMs/1000)+"s"; debouncedSave(); });
+  $("rateRange").addEventListener("input",function(){ rate=parseFloat(this.value); $("rateVal").textContent=rate.toFixed(2)+"×"; debouncedSave(); });
+  $("duckRange").addEventListener("input",function(){ duckVol=parseInt(this.value,10); $("duckVal").textContent=duckVol+"%"; debouncedSave(); });
+
+  $("copyLink").onclick=copyShare; $("exportBtn").onclick=exportFile; $("importBtn").onclick=function(){ $("importFile").click(); };
+  $("importFile").addEventListener("change",function(){ var f=this.files&&this.files[0]; if(!f){return;} var r=new FileReader(); r.onload=function(){ try{ importData(JSON.parse(r.result)); }catch(err){ setStatus("That file isn't a valid Compás export.","err",false); } }; r.readAsText(f); this.value=""; });
+
+  document.addEventListener("keydown",function(e){
+    if(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+    if(!pbReady()) return;
+    if(e.code==="Space"){ e.preventDefault(); togglePlay(); }
+    else if(e.key==="m"||e.key==="M"){ addCue(); }
+    else if(e.key==="ArrowRight"){ jumpNext(); }
+    else if(e.key==="ArrowLeft"){ jumpPrev(); }
+    else if(e.key==="Escape"){ setFocus(false); }
+  });
+
+  // ---------- init ----------
+  if(window.speechSynthesis){ refreshVoices(); speechSynthesis.onvoiceschanged=refreshVoices; setTimeout(refreshVoices,800); }
+  renderSaved(); ensureApiScript(); tryImportHash();
+})();
+</script>
+</body>
+</html>
