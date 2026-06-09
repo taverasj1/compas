@@ -8,6 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Compás">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Compás · choreography cue trainer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -408,6 +410,7 @@
   var playing=false, wakeLock=null, countActive=false, countTimer=null, pendingImport=null;
   var SPEEDS=[0.5,0.75,1,1.25,1.5];
   var geminiKey="", aiVocab="", geminiModel="gemini-2.5-flash", autoMode="replace", fnUrl="";
+  var ytAnchorT=0, ytAnchorMs=0, lastUiMs=0; // YT time interpolation anchor + UI write throttle
 
   var $=function(id){return document.getElementById(id);};
   function fmt(t){ if(t==null||isNaN(t))return "0:00.0"; if(t<0)t=0; var m=Math.floor(t/60),s=Math.floor(t%60),d=Math.floor((t*10)%10); return m+":"+(s<10?"0":"")+s+"."+d; }
@@ -440,9 +443,21 @@
 
   // ---------- unified playback layer ----------
   function pbReady(){ return sourceMode==="yt" ? !!(player&&player.getCurrentTime) : !!(audioEl&&audioReady); }
-  function pbTime(){ try{ return sourceMode==="yt" ? (player.getCurrentTime()||0) : (audioEl?audioEl.currentTime||0:0); }catch(e){ return 0; } }
+  function pbTime(){
+    try{
+      if(sourceMode!=="yt") return audioEl?audioEl.currentTime||0:0;
+      var raw=player.getCurrentTime()||0;
+      // YT polls update in coarse steps (~100-250ms). While playing, interpolate
+      // between steps with a wall-clock anchor for much tighter cue timing.
+      if(!playing){ ytAnchorT=raw; ytAnchorMs=0; return raw; }
+      var nowMs=(window.performance&&performance.now)?performance.now():Date.now();
+      if(!ytAnchorMs || Math.abs(raw-ytAnchorT)>0.001){ ytAnchorT=raw; ytAnchorMs=nowMs; return raw; }
+      var est=ytAnchorT+((nowMs-ytAnchorMs)/1000)*playSpeed;
+      return Math.min(est, ytAnchorT+0.5); // never run away more than half a second past the last real poll
+    }catch(e){ return 0; }
+  }
   function pbDuration(){ try{ var d=sourceMode==="yt" ? (player.getDuration?player.getDuration():0) : (audioEl?audioEl.duration:0); return (d&&isFinite(d))?d:0; }catch(e){ return 0; } }
-  function pbSeek(t){ try{ if(sourceMode==="yt"){ player.seekTo(t,true); } else if(audioEl){ audioEl.currentTime=Math.max(0,t); } }catch(e){} }
+  function pbSeek(t){ ytAnchorMs=0; try{ if(sourceMode==="yt"){ player.seekTo(t,true); } else if(audioEl){ audioEl.currentTime=Math.max(0,t); } }catch(e){} }
   function pbIsPlaying(){ try{ return sourceMode==="yt" ? (player.getPlayerState&&player.getPlayerState()===1) : (!!audioEl && !audioEl.paused); }catch(e){ return false; } }
   function pbPlay(){ try{ if(sourceMode==="yt"){ player.playVideo(); } else if(audioEl){ ensureAudioCtx(); audioEl.play(); } }catch(e){} }
   function pbPause(){ try{ if(sourceMode==="yt"){ player.pauseVideo(); } else if(audioEl){ audioEl.pause(); } }catch(e){} }
@@ -557,7 +572,16 @@
     if(sourceMode==="file") ensureAudioCtx();
     if(countIn){ runCountIn(function(){ pbPlay(); }); } else { pbPlay(); }
   }
-  function setPlaying(p){ playing=p; document.body.classList.toggle("playing",p); setPlayIcon(p); if(p&&keepAwake) requestWake(); else if(!p) releaseWake(); }
+  function setPlaying(p){
+    playing=p; document.body.classList.toggle("playing",p); setPlayIcon(p);
+    if(p){
+      // if the position moved while we were paused (e.g. native YT scrubber), re-sync
+      // so a backlog of crossed cues doesn't burst-fire on resume
+      var t0=pbTime(); if(Math.abs(t0-lastT)>0.5) lastT=t0-0.001;
+      if(keepAwake) requestWake();
+      startTick();
+    } else { releaseWake(); }
+  }
   function setPlayIcon(p){
     var pause='<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>', play='<path d="M8 5v14l11-7z"/>';
     $("playIcon").innerHTML=p?pause:play; var f=$("fPlayIcon"); if(f) f.innerHTML=p?pause:play;
@@ -585,6 +609,8 @@
   function setFocus(on){ document.body.classList.toggle("focus",on); if(on&&playing&&keepAwake) requestWake(); }
 
   // ---------- timing loop ----------
+  // Runs only while playing (or during count-in) — stops itself on pause to save
+  // battery instead of polling the YouTube iframe at 60fps forever.
   function startTick(){ if(tickRunning) return; tickRunning=true; requestAnimationFrame(tick); }
   function tick(){
     if(pbReady()){
@@ -594,11 +620,23 @@
         var ls=(loop.start!=null)?loop.start:0, le=(loop.end!=null)?loop.end:dur;
         if(le>ls && t>=le-0.04){ pbSeek(ls); lastT=ls-0.05; updateProgress(ls,dur); requestAnimationFrame(tick); return; }
       }
+      // cue checks run every frame for accuracy…
       var lead=leadInMs/1000, loopActive=loop.enabled, ls2=(loop.start!=null)?loop.start:0;
       for(var i=0;i<cues.length;i++){ var c=cues[i]; var trig=c.time-lead; if(loopActive && trig<ls2) trig=ls2; if(lastT<trig && t>=trig){ fireCue(c); } }
-      updateProgress(t,dur); updateHint(t); lastT=t;
+      // …but readout/progress DOM writes are throttled to ~10Hz (display shows tenths anyway)
+      var nowMs=(window.performance&&performance.now)?performance.now():Date.now();
+      if(nowMs-lastUiMs>=100){ lastUiMs=nowMs; updateProgress(t,dur); updateHint(t); }
+      lastT=t;
     }
-    requestAnimationFrame(tick);
+    if(playing||countActive){ requestAnimationFrame(tick); }
+    else { tickRunning=false; refreshUI(null); }
+  }
+  // one-shot repaint for seeks made while paused (loop isn't running then)
+  function refreshUI(t){
+    if(!pbReady()) return;
+    var d=pbDuration(); if(d && d!==lastDur){ lastDur=d; renderTimeline(); }
+    if(t==null) t=pbTime();
+    updateProgress(t,d); updateHint(t);
   }
   function fireCue(c){
     currentCue=c; var el=$("nowMove");
@@ -664,12 +702,12 @@
   }
   function jumpNext(){ if(!pbReady())return; var t=pbTime(); for(var i=0;i<cues.length;i++){ if(cues[i].time>t+0.15){ goCue(cues[i]); return; } } }
   function jumpPrev(){ if(!pbReady())return; var t=pbTime(); for(var i=cues.length-1;i>=0;i--){ if(cues[i].time<t-0.6){ goCue(cues[i]); return; } } if(cues.length) goCue(cues[0]); }
-  function goCue(c){ pbSeek(c.time); lastT=c.time-0.05; var el=$("nowMove"); el.textContent=c.name||"(unnamed)"; el.className="now"; flashCueRow(c); }
+  function goCue(c){ pbSeek(c.time); lastT=c.time-0.05; var el=$("nowMove"); el.textContent=c.name||"(unnamed)"; el.className="now"; flashCueRow(c); refreshUI(c.time); }
   function renderCues(){
     var box=$("cueList"); box.innerHTML=""; $("cueCount").textContent=cues.length; $("cueEmpty").style.display=cues.length?"none":"block";
     cues.forEach(function(c){
       var row=document.createElement("div"); row.className="cue"+(c.id===recentId?" flash":""); row.setAttribute("data-id",c.id);
-      var tc=document.createElement("button"); tc.className="tc"; tc.textContent=fmt(c.time); tc.title="Jump here"; tc.onclick=function(){ pbSeek(c.time); lastT=c.time-0.05; };
+      var tc=document.createElement("button"); tc.className="tc"; tc.textContent=fmt(c.time); tc.title="Jump here"; tc.onclick=function(){ pbSeek(c.time); lastT=c.time-0.05; refreshUI(c.time); };
       var nm=document.createElement("input"); nm.className="name"; nm.type="text"; nm.value=c.name; nm.placeholder="name this move"; nm.autocapitalize="off"; nm.spellcheck=false; nm.oninput=function(){ c.name=nm.value; debouncedSave(); };
       var nudge=document.createElement("div"); nudge.className="nudge";
       nudge.appendChild(mkIc("−","earlier 0.1s",function(){ c.time=Math.max(0,c.time-0.1); cues.sort(byTime); save(); renderCues(); renderTimeline(); }));
@@ -853,8 +891,8 @@
       +'{"cues":[{"t":5.2,"n":"vuelta derecha"},{"t":11.0,"n":"cross body lead"}]}';
     setAiStatus("Analyzing the video with "+model+"… this can take 15–60 seconds.","");
     $("aiGenBtn").disabled=true;
-    fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent?key="+encodeURIComponent(keyVal),{
-      method:"POST", headers:{"Content-Type":"application/json"},
+    fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",{
+      method:"POST", headers:{"Content-Type":"application/json","x-goog-api-key":keyVal},
       body:JSON.stringify({ contents:[{ parts:[ {text:prompt}, {file_data:{file_uri:url}} ] }], generationConfig:{ responseMimeType:"application/json", temperature:0.2, maxOutputTokens:8192 } })
     }).then(function(res){ return res.json().then(function(data){ return {ok:res.ok,status:res.status,data:data}; },function(){ return {ok:res.ok,status:res.status,data:null}; }); })
     .then(function(r){
@@ -913,7 +951,7 @@
   $("fSpeed").onclick=cycleSpeed;
   $("focusBtn").onclick=function(){ setFocus(true); }; $("exitFocus").onclick=function(){ setFocus(false); };
 
-  $("track").onclick=function(e){ if(!pbReady())return; var r=this.getBoundingClientRect(); var p=(e.clientX-r.left)/r.width; var dur=pbDuration(); if(dur>0){ pbSeek(p*dur); lastT=p*dur-0.05; } };
+  $("track").onclick=function(e){ if(!pbReady())return; var r=this.getBoundingClientRect(); var p=(e.clientX-r.left)/r.width; var dur=pbDuration(); if(dur>0){ pbSeek(p*dur); lastT=p*dur-0.05; refreshUI(p*dur); } };
 
   $("markBtn").onclick=addCue;
   $("clearCues").onclick=function(){ if(!cues.length) return; if(confirm("Delete all cues for this track?")){ cues=[]; save(); renderCues(); renderTimeline(); } };
@@ -960,7 +998,13 @@
   if(aiVocab) $("aiVocab").value=aiVocab;
   if(fnUrl) $("fnUrl").value=fnUrl;
   segSet("aiModelSeg",geminiModel); segSet("aiModeSeg",autoMode);
-  renderSaved(); ensureApiScript(); tryImportHash();
+  // YouTube API loads lazily: on first YT load request, or warmed up when the
+  // user focuses the URL field — local-audio sessions never download it.
+  $("urlInput").addEventListener("focus",ensureApiScript,{once:true});
+  if("serviceWorker" in navigator && (location.protocol==="https:"||location.hostname==="localhost"||location.hostname==="127.0.0.1")){
+    try{ navigator.serviceWorker.register("sw.js"); }catch(e){}
+  }
+  renderSaved(); tryImportHash();
 })();
 </script>
 </body>
