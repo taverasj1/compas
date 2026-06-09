@@ -63,8 +63,8 @@
   .card h2{font-size:11px; letter-spacing:1.6px; text-transform:uppercase; color:var(--faint); margin:0 0 12px; font-weight:600}
   .row{display:flex; gap:10px; align-items:center}
 
-  input[type=text], select{width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:var(--r-sm); padding:13px 14px; font:inherit; font-size:15px; outline:none}
-  input[type=text]:focus, select:focus{border-color:var(--magenta); box-shadow:0 0 0 3px rgba(255,46,126,.15)}
+  input[type=text], input[type=password], select{width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:var(--r-sm); padding:13px 14px; font:inherit; font-size:15px; outline:none}
+  input[type=text]:focus, input[type=password]:focus, select:focus{border-color:var(--magenta); box-shadow:0 0 0 3px rgba(255,46,126,.15)}
   select{appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a294b1' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; padding-right:34px}
 
   .btn{cursor:pointer; border:1px solid var(--line); background:var(--surface2); color:var(--text); border-radius:var(--r-sm); padding:13px 16px; font:inherit; font-weight:600; font-size:14px; transition:transform .08s ease, border-color .15s, background .15s; white-space:nowrap}
@@ -95,6 +95,7 @@
 
   .status{margin-top:12px; font-size:13px; line-height:1.55; color:var(--coral); background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:11px 13px}
   .status.err{color:#ffc6d2; border-color:#5a2740; background:rgba(255,46,126,.07)}
+  .status.ok{color:#bff0d8; border-color:#1f5a40; background:rgba(63,211,154,.08)}
 
   .transport{display:flex; align-items:center; gap:12px; margin-top:14px}
   .play-btn{flex:none; width:48px; height:48px; border-radius:50%; border:1px solid var(--line); background:var(--surface2); color:var(--text); display:grid; place-items:center; cursor:pointer; transition:transform .08s}
@@ -276,6 +277,36 @@
     <div class="empty-note" id="cueEmpty">Play the track and tap <b style="color:var(--coral)">MARK</b> on the beat to drop a cue, then name the move.</div>
   </div>
 
+  <!-- AUTO-CUE (AI) -->
+  <div class="card">
+    <h2>✨ Auto-cue with AI</h2>
+    <p style="font-size:13px; color:var(--muted); margin:-4px 0 14px; line-height:1.5">Have Gemini watch the loaded YouTube video and drop a cue at each move. Review and rename after — it gets you most of the way in seconds.</p>
+    <div class="field">
+      <div class="flabel">Gemini API key <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="font-weight:600">get one ↗</a></div>
+      <input type="password" id="geminiKey" placeholder="Paste your Gemini API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div style="font-size:11.5px;color:var(--faint);margin-top:6px">Stored only on this device. Leave blank if you use the Cloud Function below.</div>
+    </div>
+    <div class="field">
+      <div class="flabel">Cloud Function URL <span style="color:var(--faint)">— optional, recommended for sharing</span></div>
+      <input type="text" id="fnUrl" placeholder="https://…cloudfunctions.net/generateCues" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <div style="font-size:11.5px;color:var(--faint);margin-top:6px">If set, the call routes through your server and the browser never sees the key.</div>
+    </div>
+    <div class="field">
+      <div class="flabel">Moves to look for <span style="color:var(--faint)">— optional</span></div>
+      <input type="text" id="aiVocab" placeholder="e.g. enchufla, dile que no, sombrero, copa" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="field toggle-row">
+      <div class="lbl">Model</div>
+      <div class="seg" id="aiModelSeg"><button data-v="gemini-2.5-flash" class="active">Flash · fast</button><button data-v="gemini-2.5-pro">Pro · best</button></div>
+    </div>
+    <div class="field toggle-row">
+      <div class="lbl">When generating</div>
+      <div class="seg" id="aiModeSeg"><button data-v="replace" class="active">Replace</button><button data-v="merge">Add</button></div>
+    </div>
+    <button class="btn primary" id="aiGenBtn" style="width:100%">✨ Generate cues from this video</button>
+    <div class="status" id="aiStatus" style="display:none; margin-top:12px"></div>
+  </div>
+
   <!-- LOOP -->
   <div class="card">
     <h2>Loop</h2>
@@ -376,6 +407,7 @@
   var lastT=0, lastDur=0, currentCue=null, recentId=null, restoreTimer=null, speechUnlocked=false;
   var playing=false, wakeLock=null, countActive=false, countTimer=null, pendingImport=null;
   var SPEEDS=[0.5,0.75,1,1.25,1.5];
+  var geminiKey="", aiVocab="", geminiModel="gemini-2.5-flash", autoMode="replace", fnUrl="";
 
   var $=function(id){return document.getElementById(id);};
   function fmt(t){ if(t==null||isNaN(t))return "0:00.0"; if(t<0)t=0; var m=Math.floor(t/60),s=Math.floor(t%60),d=Math.floor((t*10)%10); return m+":"+(s<10?"0":"")+s+"."+d; }
@@ -751,6 +783,105 @@
     });
   }
 
+  // ---------- auto-cue (Gemini) ----------
+  function setAiStatus(text,type){ var el=$("aiStatus"); if(!el)return; if(!text){ el.style.display="none"; el.textContent=""; return; } el.style.display="block"; el.className="status "+(type==="err"?"err":(type==="ok"?"ok":"")); el.textContent=text; }
+  function parseTimeToSeconds(v){
+    if(v==null) return null;
+    if(typeof v==="number") return isFinite(v)?Math.max(0,v):null;
+    var s=String(v).trim();
+    if(/^\d+(\.\d+)?$/.test(s)) return Math.max(0,parseFloat(s));
+    var hms=s.match(/^(\d+):(\d{1,2}):(\d{1,2})(?:\.(\d+))?$/); if(hms) return (+hms[1])*3600+(+hms[2])*60+(+hms[3])+(hms[4]?parseFloat("0."+hms[4]):0);
+    var ms=s.match(/^(\d+):(\d{1,2})(?:\.(\d+))?$/); if(ms) return (+ms[1])*60+(+ms[2])+(ms[3]?parseFloat("0."+ms[3]):0);
+    var f=parseFloat(s); return isNaN(f)?null:Math.max(0,f);
+  }
+  function parseCuesJSON(text){
+    var t=String(text).trim().replace(/^```json\s*/i,"").replace(/^```\s*/,"").replace(/```\s*$/,"").trim();
+    var obj=null;
+    try{ obj=JSON.parse(t); }catch(e){ var m=t.match(/\{[\s\S]*\}|\[[\s\S]*\]/); if(m){ try{ obj=JSON.parse(m[0]); }catch(e2){} } }
+    if(!obj) return null;
+    var arr=Array.isArray(obj)?obj:(obj.cues||obj.moves||obj.timestamps||obj.items||[]);
+    if(!Array.isArray(arr)) return null;
+    var out=[];
+    for(var i=0;i<arr.length;i++){
+      var it=arr[i]; if(!it) continue;
+      var tt=(it.t!=null)?it.t:(it.time!=null?it.time:(it.timestamp!=null?it.timestamp:(it.start!=null?it.start:(it.seconds!=null?it.seconds:null))));
+      var nm=it.n||it.name||it.move||it.label||it.description||it.text||"";
+      var secs=parseTimeToSeconds(tt); if(secs==null) continue;
+      out.push({t:secs, n:String(nm).slice(0,80)});
+    }
+    out.sort(function(a,b){return a.t-b.t;});
+    return out;
+  }
+  function applyGeneratedCues(parsed){
+    var mapped=parsed.map(function(x,i){ return {id:"ai"+Date.now()+"-"+i, time:x.t, name:x.n}; });
+    if(autoMode==="merge" && cues.length){ cues=cues.concat(mapped); } else { cues=mapped; }
+    cues.sort(byTime); save(); renderCues(); renderTimeline();
+    setAiStatus("Added "+mapped.length+" cue"+(mapped.length===1?"":"s")+" ✓ — review the names and nudge any timing.","ok");
+  }
+  function genViaProxy(url,model){
+    var fn=(fnUrl||"").trim();
+    setAiStatus("Analyzing the video via your Cloud Function… this can take 15–60 seconds.","");
+    $("aiGenBtn").disabled=true;
+    fetch(fn,{ method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ url:url, lang:lang, vocab:(aiVocab||"").trim(), model:model }) })
+    .then(function(res){ return res.json().then(function(d){ return {ok:res.ok,status:res.status,data:d}; },function(){ return {ok:res.ok,status:res.status,data:null}; }); })
+    .then(function(r){
+      $("aiGenBtn").disabled=false;
+      if(!r.data){ setAiStatus("Function returned no data (HTTP "+r.status+"). Check the URL.","err"); return; }
+      if(r.data.error){ setAiStatus("Function: "+r.data.error,"err"); return; }
+      if(!r.ok){ setAiStatus("Function error (HTTP "+r.status+").","err"); return; }
+      var raw=Array.isArray(r.data.cues)?r.data.cues:[]; var parsed=[];
+      for(var i=0;i<raw.length;i++){ var x=raw[i]||{}; var secs=parseTimeToSeconds(x.t!=null?x.t:x.time); if(secs==null) continue; parsed.push({t:secs, n:String(x.n||x.name||"").slice(0,80)}); }
+      if(!parsed.length){ setAiStatus("No clear moves came back. Try a clearer video, or list move names above.","err"); return; }
+      applyGeneratedCues(parsed);
+    }).catch(function(err){ $("aiGenBtn").disabled=false; setAiStatus("Couldn't reach your Cloud Function ("+((err&&err.message)||"network error")+"). Check the URL and the CORS allowlist in the function.","err"); });
+  }
+  function genViaDirect(url,model){
+    var keyVal=(geminiKey||"").trim(); if(!keyVal){ setAiStatus("Add your Gemini API key, or a Cloud Function URL, first.","err"); return; }
+    var es=lang.indexOf("es")===0, langName=es?"Spanish":"English";
+    var vocab=(aiVocab||"").trim();
+    var defVocab=es?"paso básico, vuelta derecha, vuelta izquierda, enchufla, enchufla doble, dile que no, sombrero, copa, setenta, cross body lead"
+                   :"basic step, right turn, left turn, cross body lead, open break, copa, hammerlock, comb, cuddle";
+    var useVocab=vocab||defVocab;
+    var prompt="You are analyzing a partner dance video (salsa / bachata / Latin social dance). "
+      +"Watch the whole video and identify each distinct dance move or figure at the moment it begins. "
+      +"For each one, give its start time and a short move name. "
+      +"Prefer names from this vocabulary when a move matches: "+useVocab+". "
+      +"If a movement does not match, give a brief plain description instead. "
+      +"Write the move names in "+langName+". Do not include duplicate consecutive entries. "
+      +"Return ONLY JSON in exactly this shape, with time as seconds (a number): "
+      +'{"cues":[{"t":5.2,"n":"vuelta derecha"},{"t":11.0,"n":"cross body lead"}]}';
+    setAiStatus("Analyzing the video with "+model+"… this can take 15–60 seconds.","");
+    $("aiGenBtn").disabled=true;
+    fetch("https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent?key="+encodeURIComponent(keyVal),{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({ contents:[{ parts:[ {text:prompt}, {file_data:{file_uri:url}} ] }], generationConfig:{ responseMimeType:"application/json", temperature:0.2, maxOutputTokens:8192 } })
+    }).then(function(res){ return res.json().then(function(data){ return {ok:res.ok,status:res.status,data:data}; },function(){ return {ok:res.ok,status:res.status,data:null}; }); })
+    .then(function(r){
+      $("aiGenBtn").disabled=false;
+      if(!r.ok){
+        var msg=(r.data&&r.data.error&&r.data.error.message)||("Request failed ("+r.status+").");
+        if(r.status===400 && /API key|API_KEY/i.test(msg)) msg="That API key was rejected — double-check it.";
+        else if(r.status===404 && /model/i.test(msg)) msg=msg+"  (Try switching model, or use gemini-2.0-flash.)";
+        setAiStatus("Gemini error: "+msg,"err"); return;
+      }
+      var text=""; try{ text=r.data.candidates[0].content.parts.map(function(p){return p.text||"";}).join(""); }catch(e){}
+      if(!text){ var fr=r.data&&r.data.candidates&&r.data.candidates[0]&&r.data.candidates[0].finishReason; setAiStatus("Gemini returned nothing usable"+(fr?(" ("+fr+")"):"")+". The video may be private, too long, or region-locked.","err"); return; }
+      var parsed=parseCuesJSON(text);
+      if(!parsed||!parsed.length){ setAiStatus("No clear moves came back. Try a clearer/closer video, or list specific move names above.","err"); return; }
+      applyGeneratedCues(parsed);
+    }).catch(function(err){
+      $("aiGenBtn").disabled=false;
+      setAiStatus("Couldn't reach Gemini ("+((err&&err.message)||"network error")+"). If it's a CORS block, use the Cloud Function URL field instead.","err");
+    });
+  }
+  function autoGenerateCues(){
+    if(sourceMode!=="yt" || !currentVideoId || String(currentVideoId).indexOf("file:")===0){ setAiStatus("Load a YouTube video first — AI detection reads the YouTube video. For a local file, upload it to YouTube (unlisted) or use Google AI Studio.","err"); return; }
+    var url="https://www.youtube.com/watch?v="+currentVideoId;
+    var model=geminiModel||"gemini-2.5-flash";
+    if((fnUrl||"").trim()){ genViaProxy(url,model); } else { genViaDirect(url,model); }
+  }
+
   // ---------- ui sync ----------
   function segSet(id,val){ var seg=$(id); if(!seg) return; var bs=seg.querySelectorAll("button"); for(var i=0;i<bs.length;i++) bs[i].classList.toggle("active", bs[i].getAttribute("data-v")===val); }
   function syncControls(){
@@ -805,6 +936,13 @@
   $("copyLink").onclick=copyShare; $("exportBtn").onclick=exportFile; $("importBtn").onclick=function(){ $("importFile").click(); };
   $("importFile").addEventListener("change",function(){ var f=this.files&&this.files[0]; if(!f){return;} var r=new FileReader(); r.onload=function(){ try{ importData(JSON.parse(r.result)); }catch(err){ setStatus("That file isn't a valid Compás export.","err",false); } }; r.readAsText(f); this.value=""; });
 
+  $("geminiKey").addEventListener("input",function(){ geminiKey=this.value; try{ localStorage.setItem("compas:geminiKey",geminiKey); }catch(e){} });
+  $("aiVocab").addEventListener("input",function(){ aiVocab=this.value; try{ localStorage.setItem("compas:aiVocab",aiVocab); }catch(e){} });
+  $("fnUrl").addEventListener("input",function(){ fnUrl=this.value; try{ localStorage.setItem("compas:fnUrl",fnUrl); }catch(e){} });
+  $("aiModelSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; geminiModel=b.getAttribute("data-v"); segSet("aiModelSeg",geminiModel); try{ localStorage.setItem("compas:aiModel",geminiModel); }catch(e){} });
+  $("aiModeSeg").addEventListener("click",function(e){ var b=e.target.closest("button"); if(!b)return; autoMode=b.getAttribute("data-v"); segSet("aiModeSeg",autoMode); });
+  $("aiGenBtn").onclick=autoGenerateCues;
+
   document.addEventListener("keydown",function(e){
     if(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if(!pbReady()) return;
@@ -817,6 +955,11 @@
 
   // ---------- init ----------
   if(window.speechSynthesis){ refreshVoices(); speechSynthesis.onvoiceschanged=refreshVoices; setTimeout(refreshVoices,800); }
+  try{ geminiKey=localStorage.getItem("compas:geminiKey")||""; aiVocab=localStorage.getItem("compas:aiVocab")||""; geminiModel=localStorage.getItem("compas:aiModel")||"gemini-2.5-flash"; fnUrl=localStorage.getItem("compas:fnUrl")||""; }catch(e){}
+  if(geminiKey) $("geminiKey").value=geminiKey;
+  if(aiVocab) $("aiVocab").value=aiVocab;
+  if(fnUrl) $("fnUrl").value=fnUrl;
+  segSet("aiModelSeg",geminiModel); segSet("aiModeSeg",autoMode);
   renderSaved(); ensureApiScript(); tryImportHash();
 })();
 </script>
