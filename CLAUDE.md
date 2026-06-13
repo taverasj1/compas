@@ -72,6 +72,30 @@ firebase deploy --only hosting:compas
 
 ---
 
+## Android app (Google Play) — TWA packaging
+The Android app is a **Trusted Web Activity**: it runs the live PWA at
+`https://compas-d2b35.web.app` fullscreen in Chrome, so spoken cues
+(`speechSynthesis`) work untouched. Content/feature changes ship with
+`firebase deploy` and appear in the installed app immediately — only shell,
+package-name, or version changes need a new `.aab` resubmitted to Play.
+
+**Digital Asset Links** verifies the app↔domain link and removes the URL bar.
+The verification file lives at `public/.well-known/assetlinks.json` and is
+served at `https://compas-d2b35.web.app/.well-known/assetlinks.json`.
+> `firebase.json` must NOT ignore `**/.*`, or `.well-known/` is dropped from the
+> deploy. A `headers` rule pins its `Content-Type` to `application/json`.
+
+To finish wiring (once the `.aab` is built via PWABuilder.com or Bubblewrap):
+1. Set `package_name` to the TWA's Android package id.
+2. Set `sha256_cert_fingerprints` to the **Play App Signing** SHA-256 (Play
+   Console → Setup → App integrity), not the local upload-key fingerprint.
+3. `firebase deploy`, then verify at
+   `https://developers.google.com/digital-asset-links/tools/generator`.
+
+A privacy policy (required by Play) is served at `/privacy.html`.
+
+---
+
 ## Continuing in Claude Code
 ```bash
 npm install -g @anthropic-ai/claude-code
