@@ -1,7 +1,7 @@
 /* Compás service worker.
    CONVENTION: bump CACHE_NAME (compas-v2, v3, …) in the same commit as any
    change to index.html, or returning visitors keep the old shell longer. */
-var CACHE_NAME = "compas-v1";
+var CACHE_NAME = "compas-v2";
 var SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", function (e) {

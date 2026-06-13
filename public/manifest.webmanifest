@@ -1,7 +1,9 @@
 {
+  "id": "/",
   "name": "Compás — choreography cue trainer",
   "short_name": "Compás",
   "description": "Place timed move cues on a track and hear them spoken just before each move.",
+  "categories": ["fitness", "music", "education"],
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
