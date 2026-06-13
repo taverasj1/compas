@@ -29,7 +29,10 @@ Your live URL will be `https://PROJECT_ID.web.app`.
 ```
 compas/
 ├── public/
-│   └── index.html        ← the entire app (HTML + CSS + JS, no build step)
+│   ├── index.html         ← the entire app (HTML + CSS + JS, no build step)
+│   ├── manifest.webmanifest ← PWA manifest (installable app)
+│   ├── sw.js              ← service worker (offline shell + font cache) — bump CACHE_NAME on deploys
+│   └── icons/             ← PWA icons (192, 512, 512-maskable)
 ├── firebase.json          ← Firebase Hosting config
 ├── .firebaserc            ← created by `firebase init` / `firebase use` (holds project ID)
 ├── .gitignore
@@ -127,6 +130,17 @@ Cues persist in localStorage but audio must be re-picked each session (browser s
 2. Cue fire: `trigger = cue.time − leadIn`. Fire on forward-crossing: `lastT < trigger ≤ currentTime`. Handles loops and manual seeks automatically.
 3. `updateProgress` / `updateHint` / `renderTimeline` (only when duration changes).
 
+**Perf behavior (don't regress):**
+- The loop **stops itself when paused** (`tick` re-queues only while `playing || countActive`); `setPlaying(true)` restarts it via `startTick()`. Seeks made while paused must call `refreshUI(t)` for a one-shot repaint.
+- Cue checks run every frame, but progress/hint **DOM writes are throttled to ~10Hz** (`lastUiMs`).
+- `pbTime()` **interpolates YouTube time** between coarse `getCurrentTime()` polls using a `performance.now()` anchor (`ytAnchorT/ytAnchorMs`) × `playSpeed`, capped at +0.5s — this is what makes YT cue timing tight. `pbSeek` resets the anchor.
+
+### Auto-cue (Gemini)
+`autoGenerateCues` → `genViaDirect` (browser → Gemini, key in `x-goog-api-key` header — never in the URL) or `genViaProxy` (POST to a Cloud Function so the key stays server-side). Output parsed by `parseCuesJSON`/`parseTimeToSeconds`, applied by `applyGeneratedCues` (replace or merge per `autoMode`). Key/vocab/model/fnUrl persist in localStorage (`compas:geminiKey` etc.).
+
+### PWA
+`manifest.webmanifest` + `sw.js`, registered at init (https or localhost only). SW strategy: navigations network-first with cached `index.html` fallback; fonts + same-origin assets cache-first. YouTube/Gemini traffic is never intercepted. The YouTube IFrame API now **lazy-loads** (on first YT load or URL-field focus) — local-audio sessions never download it.
+
 ### Cue firing (`fireCue`)
 Sets readout → CSS pulse animation → `speak(cue.name)`:
 `duck()` → `speechSynthesis.speak(utterance)` → `onend: restore()`
@@ -151,6 +165,8 @@ localStorage key          contents
 3. **Auto-save after mutations** — call `save()` or `debouncedSave()` after changing `cues`, `loop`, or settings.
 4. **`renderTimeline()`** after any cue or loop change, and when duration first becomes known.
 5. **Spanish move names** come out correctly with `lang = 'es-US'` (vuelta, enchufla, sombrero, etc.).
+6. **Bump `CACHE_NAME` in `sw.js`** (compas-v2, v3, …) in any commit that changes `index.html`, or returning visitors may briefly see the stale cached shell.
+7. **Don't add per-frame DOM writes to `tick`** — UI writes go inside the 10Hz throttle block; the loop must keep stopping when paused.
 
 ---
 
@@ -161,15 +177,16 @@ localStorage key          contents
 | iPhone volume ducking | iOS owns OS volume; YouTube `setVolume` is ignored. Local audio ducks fine via Web Audio |
 | YouTube ads | Can interrupt loops on free accounts |
 | Local audio re-pick | Audio must be re-attached each session. Re-attach flow exists (tap saved 🎵 chip) |
-| Loose cue timing on YouTube | ~100–300ms jitter from polling. Local audio is tight |
-| No offline cache | No service worker yet — fonts and YouTube need internet |
+| Cue timing on YouTube | Was ~100–300ms jitter; now interpolated in `pbTime()` — residual jitter is small. Local audio is tight |
+| Offline | Service worker caches the shell + fonts; YouTube playback and Gemini still need internet (local audio works offline) |
 
 ---
 
 ## Backlog (priority order)
 - [ ] **Per-cue notes** — text field per cue, visible on screen, not spoken. Quick UI add.
 - [ ] **Tap-tempo BPM + 8-count snapping** — tap on the beat to detect BPM, snap cues to count positions (1–8). Core for Latin social dance teaching.
-- [ ] **PWA: manifest + service worker** — true installable offline shell; cache fonts + index.html.
+- [x] **PWA: manifest + service worker** — done: installable offline shell, fonts + index.html cached.
+- [x] **AI auto-cue (Gemini)** — done: generates cues from the loaded YouTube video (direct key or Cloud Function proxy).
 - [ ] **Beat-locked count-in** — time "cinco, seis, siete, ocho" to the actual beat grid once BPM exists.
 - [ ] **Media Session API** — lock-screen / Bluetooth remote → prev/next cue hands-free mid-rehearsal.
 - [ ] **Firestore cue sync** — store cues in Firestore; sync across devices; share a choreography by link.

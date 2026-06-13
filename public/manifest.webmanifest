@@ -1,0 +1,16 @@
+{
+  "name": "Compás — choreography cue trainer",
+  "short_name": "Compás",
+  "description": "Place timed move cues on a track and hear them spoken just before each move.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e0a10",
+  "theme_color": "#0e0a10",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
