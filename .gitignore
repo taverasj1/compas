@@ -2,3 +2,11 @@
 node_modules/
 .env
 .claude/
+
+# Android signing / build artifacts — NEVER commit these
+*.keystore
+*.jks
+*.aab
+*.apk
+signing-key-info.txt
+signingkeyinfo.txt
